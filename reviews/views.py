@@ -124,7 +124,12 @@ def repository_sync(request, pk):
         
         messages.success(request, f'Synced {synced} pull requests')
     except GitHubAPIError as e:
-        messages.error(request, f'Error syncing: {e}')
+        messages.error(request, f'GitHub API error: {e}')
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception(f'Error syncing repository {repository.name}')
+        messages.error(request, f'Error syncing: {str(e)}')
     
     return redirect('repository_detail', pk=pk)
 
