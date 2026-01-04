@@ -153,7 +153,7 @@ class Review(models.Model):
         related_name='reviews_approved'
     )
     instructor_notes = models.TextField(blank=True, help_text="Notes from instructor")
-    github_comment_id = models.IntegerField(null=True, blank=True)
+    github_comment_id = models.BigIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     approved_at = models.DateTimeField(null=True, blank=True)

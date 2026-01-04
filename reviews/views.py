@@ -254,22 +254,28 @@ def review_approve(request, pk):
     notes = request.POST.get('notes', '')
     post_to_github = request.POST.get('post_to_github') == 'on'
     
-    review.approve(request.user, notes)
-    messages.success(request, 'Review approved')
-    
-    if post_to_github:
-        try:
-            client = GitHubClient()
-            pr = review.pull_request
-            repo = pr.repository
-            
-            result = client.create_issue_comment(
-                repo.owner, repo.repo_name, pr.number, review.summary
-            )
-            review.mark_posted(result.get('id'))
-            messages.success(request, 'Review posted to GitHub')
-        except GitHubAPIError as e:
-            messages.error(request, f'Failed to post to GitHub: {e}')
+    try:
+        review.approve(request.user, notes)
+        messages.success(request, 'Review approved')
+        
+        if post_to_github:
+            try:
+                client = GitHubClient()
+                pr = review.pull_request
+                repo = pr.repository
+                
+                result = client.create_issue_comment(
+                    repo.owner, repo.repo_name, pr.number, review.summary
+                )
+                review.mark_posted(result.get('id'))
+                messages.success(request, 'Review posted to GitHub')
+            except GitHubAPIError as e:
+                messages.error(request, f'Failed to post to GitHub: {e}')
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception(f'Error approving review {pk}')
+        messages.error(request, f'Error approving review: {str(e)}')
     
     return redirect('review_detail', pk=pk)
 
