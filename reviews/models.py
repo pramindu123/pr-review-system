@@ -77,7 +77,7 @@ class PullRequest(models.Model):
     ]
 
     repository = models.ForeignKey(Repository, on_delete=models.CASCADE, related_name='pull_requests')
-    github_id = models.IntegerField(help_text="GitHub PR ID")
+    github_id = models.BigIntegerField(help_text="GitHub PR ID")
     number = models.IntegerField(help_text="PR number in repository")
     title = models.CharField(max_length=500)
     description = models.TextField(blank=True)
