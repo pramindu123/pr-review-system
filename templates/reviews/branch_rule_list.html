@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}Branch Rules - PR Review System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Branch Rules</h1>
+    <a href="{% url 'branch_rule_add' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Add Rule
+    </a>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    Branch rules define different review expectations based on branch naming patterns.
+    PRs from matching branches will be reviewed against these specific criteria.
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if rules %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Branch Pattern</th>
+                            <th>Repository</th>
+                            <th>Severity</th>
+                            <th>Checks</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rule in rules %}
+                            <tr>
+                                <td>
+                                    <strong>{{ rule.name }}</strong>
+                                    {% if rule.description %}
+                                        <br><small class="text-muted">{{ rule.description|truncatechars:50 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td><code>{{ rule.branch_pattern }}</code></td>
+                                <td>
+                                    {% if rule.repository %}
+                                        {{ rule.repository.name }}
+                                    {% else %}
+                                        <span class="badge bg-secondary">Global</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge 
+                                        {% if rule.severity == 'critical' %}bg-danger
+                                        {% elif rule.severity == 'high' %}bg-warning text-dark
+                                        {% elif rule.severity == 'medium' %}bg-info
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ rule.severity }}
+                                    </span>
+                                </td>
+                                <td>{{ rule.expectations.checks|length }} checks</td>
+                                <td>
+                                    {% if rule.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form method="post" action="{% url 'branch_rule_delete' rule.pk %}" 
+                                          class="d-inline" onsubmit="return confirm('Delete this rule?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="bi bi-sliders"></i>
+                <p>No custom branch rules defined</p>
+                <p class="text-muted small">Default rules are applied based on branch naming conventions</p>
+                <a href="{% url 'branch_rule_add' %}" class="btn btn-primary">Add Branch Rule</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-info-circle"></i> Default Branch Rules</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">The system automatically applies these default expectations when no custom rule matches:</p>
+        
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Branch Pattern</th>
+                        <th>Review Focus</th>
+                        <th>Key Checks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>feature/*</code></td>
+                        <td>New functionality</td>
+                        <td>Tests, documentation, reasonable size, no debug code</td>
+                    </tr>
+                    <tr>
+                        <td><code>bugfix/*</code></td>
+                        <td>Bug fixes</td>
+                        <td>Regression tests, focused changes, issue reference</td>
+                    </tr>
+                    <tr>
+                        <td><code>hotfix/*</code></td>
+                        <td>Critical fixes</td>
+                        <td>Minimal changes, critical only, no new features</td>
+                    </tr>
+                    <tr>
+                        <td><code>release/*</code></td>
+                        <td>Release preparation</td>
+                        <td>Version bump, changelog, documentation</td>
+                    </tr>
+                    <tr>
+                        <td><code>refactor/*</code></td>
+                        <td>Code quality</td>
+                        <td>Tests maintained, no behavior change, improves quality</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

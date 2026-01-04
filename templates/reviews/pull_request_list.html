@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Pull Requests - PR Review System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Pull Requests</h1>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="row g-3 align-items-center">
+            <div class="col-auto">
+                <select name="repository" class="form-select form-select-sm">
+                    <option value="">All Repositories</option>
+                    {% for repo in repositories %}
+                        <option value="{{ repo.pk }}" {% if request.GET.repository == repo.pk|stringformat:"i" %}selected{% endif %}>
+                            {{ repo.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">All Status</option>
+                    <option value="open" {% if request.GET.status == 'open' %}selected{% endif %}>Open</option>
+                    <option value="closed" {% if request.GET.status == 'closed' %}selected{% endif %}>Closed</option>
+                    <option value="merged" {% if request.GET.status == 'merged' %}selected{% endif %}>Merged</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <select name="review_status" class="form-select form-select-sm">
+                    <option value="">All Reviews</option>
+                    <option value="pending" {% if request.GET.review_status == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="approved" {% if request.GET.review_status == 'approved' %}selected{% endif %}>Approved</option>
+                    <option value="rejected" {% if request.GET.review_status == 'rejected' %}selected{% endif %}>Rejected</option>
+                    <option value="posted" {% if request.GET.review_status == 'posted' %}selected{% endif %}>Posted</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                <a href="{% url 'pull_request_list' %}" class="btn btn-sm btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if pull_requests %}
+            {% for pr in pull_requests %}
+                <div class="pr-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <a href="{% url 'pull_request_detail' pr.pk %}" class="pr-title text-decoration-none">
+                                #{{ pr.number }} - {{ pr.title }}
+                            </a>
+                            <div class="pr-meta">
+                                <span class="me-2">{{ pr.repository.name }}</span>
+                                <img src="{{ pr.author_avatar }}" alt="" width="16" height="16" class="rounded-circle me-1">
+                                {{ pr.author }}
+                                <span class="mx-2">•</span>
+                                {{ pr.created_at|date:"M d, Y" }}
+                                <span class="mx-2">•</span>
+                                <span class="text-success">+{{ pr.additions }}</span>
+                                <span class="text-danger">-{{ pr.deletions }}</span>
+                            </div>
+                            <div class="mt-1">
+                                <code class="small">{{ pr.source_branch }}</code>
+                                <i class="bi bi-arrow-right mx-1"></i>
+                                <code class="small">{{ pr.target_branch }}</code>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge badge-status badge-{{ pr.status }}">{{ pr.status }}</span>
+                            {% with latest_review=pr.reviews.first %}
+                                {% if latest_review %}
+                                    <div class="mt-2">
+                                        <span class="score-badge score-{{ latest_review.overall_rating }}" style="width: 32px; height: 32px; font-size: 0.875rem;">
+                                            {{ latest_review.score }}
+                                        </span>
+                                    </div>
+                                {% else %}
+                                    <div class="mt-2">
+                                        <span class="badge bg-secondary">No Review</span>
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            
+            {% if pull_requests.has_other_pages %}
+                <nav class="p-3">
+                    <ul class="pagination mb-0 justify-content-center">
+                        {% if pull_requests.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ pull_requests.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.repository %}&repository={{ request.GET.repository }}{% endif %}{% if request.GET.review_status %}&review_status={{ request.GET.review_status }}{% endif %}">Previous</a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in pull_requests.paginator.page_range %}
+                            {% if pull_requests.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > pull_requests.number|add:'-3' and num < pull_requests.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.repository %}&repository={{ request.GET.repository }}{% endif %}{% if request.GET.review_status %}&review_status={{ request.GET.review_status }}{% endif %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if pull_requests.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ pull_requests.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.repository %}&repository={{ request.GET.repository }}{% endif %}{% if request.GET.review_status %}&review_status={{ request.GET.review_status }}{% endif %}">Next</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <i class="bi bi-git"></i>
+                <p>No pull requests found</p>
+                <a href="{% url 'repository_list' %}" class="btn btn-outline-primary">
+                    Go to Repositories to Sync PRs
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

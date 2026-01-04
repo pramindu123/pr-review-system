@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Details - PR Review System{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'review_list' %}">Reviews</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'pull_request_detail' review.pull_request.pk %}">PR #{{ review.pull_request.number }}</a></li>
+            <li class="breadcrumb-item active">Review</li>
+        </ol>
+    </nav>
+    
+    <div class="d-flex justify-content-between align-items-start">
+        <div>
+            <h1 class="h3 mb-1">
+                Review for PR #{{ review.pull_request.number }}
+            </h1>
+            <p class="text-muted mb-0">
+                {{ review.pull_request.title }}
+            </p>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <span class="score-badge score-{{ review.overall_rating }}">{{ review.score }}</span>
+            <span class="badge badge-status badge-{{ review.status }}" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                {{ review.status }}
+            </span>
+        </div>
+    </div>
+</div>
+
+{% if review.status == 'pending' %}
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-hourglass-split text-warning"></i> Awaiting Instructor Approval</h5>
+        <p class="text-muted mb-3">Review this automated feedback and approve or reject it before posting to GitHub.</p>
+        
+        <form method="post" class="row g-3">
+            {% csrf_token %}
+            <div class="col-12">
+                <label class="form-label">Instructor Notes (optional)</label>
+                <textarea name="notes" class="form-control" rows="2" placeholder="Add any additional notes..."></textarea>
+            </div>
+            <div class="col-12">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="post_to_github" id="postToGithub">
+                    <label class="form-check-label" for="postToGithub">
+                        Post to GitHub after approval
+                    </label>
+                </div>
+            </div>
+            <div class="col-12">
+                <button type="submit" formaction="{% url 'review_approve' review.pk %}" class="btn btn-success">
+                    <i class="bi bi-check-lg"></i> Approve Review
+                </button>
+                <button type="submit" formaction="{% url 'review_reject' review.pk %}" class="btn btn-danger">
+                    <i class="bi bi-x-lg"></i> Reject Review
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% elif review.status == 'approved' and not review.posted_at %}
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-check-circle text-success"></i> Review Approved</h5>
+        <p class="text-muted mb-3">This review has been approved. You can now post it to GitHub.</p>
+        
+        <form method="post" action="{% url 'review_post_to_github' review.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-github"></i> Post to GitHub
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-file-text"></i> Review Summary</h5>
+    </div>
+    <div class="card-body">
+        <pre style="white-space: pre-wrap; font-family: inherit; background: #f6f8fa; padding: 1rem; border-radius: 6px;">{{ review.summary }}</pre>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-list-check"></i> Expectation Checks
+            <span class="badge bg-success ms-2">{{ review.expectations_met.passed }} Passed</span>
+            <span class="badge bg-danger ms-1">{{ review.expectations_met.failed }} Failed</span>
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">Status</th>
+                    <th>Check</th>
+                    <th>Details</th>
+                    <th style="width: 80px;">Weight</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for check in review.expectations_met.checks %}
+                    <tr>
+                        <td>
+                            {% if check.passed %}
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                            {% else %}
+                                <i class="bi bi-x-circle-fill text-danger"></i>
+                            {% endif %}
+                        </td>
+                        <td>{{ check.description }}</td>
+                        <td><small class="text-muted">{{ check.details }}</small></td>
+                        <td>{{ check.weight }}%</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-chat-dots"></i> Detailed Feedback</h5>
+    </div>
+    <div class="card-body">
+        {% regroup review.feedback_items by category as feedback_by_category %}
+        {% for category in feedback_by_category %}
+            <h6 class="text-uppercase text-muted mb-3 mt-4">{{ category.grouper|default:"General" }}</h6>
+            {% for item in category.list %}
+                <div class="feedback-item {{ item.severity }} mb-2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>{{ item.title }}</strong>
+                            <p class="mb-1">{{ item.message }}</p>
+                            {% if item.suggestion %}
+                                <small class="text-muted">
+                                    <i class="bi bi-lightbulb"></i> {{ item.suggestion }}
+                                </small>
+                            {% endif %}
+                        </div>
+                        <span class="badge 
+                            {% if item.severity == 'success' %}bg-success
+                            {% elif item.severity == 'warning' %}bg-warning text-dark
+                            {% elif item.severity == 'error' %}bg-danger
+                            {% else %}bg-info{% endif %}">
+                            {{ item.severity }}
+                        </span>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+</div>
+
+{% if comments %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-code-slash"></i> Code Comments</h5>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>File</th>
+                    <th>Line</th>
+                    <th>Comment</th>
+                    <th>Severity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for comment in comments %}
+                    <tr>
+                        <td><code>{{ comment.file_path }}</code></td>
+                        <td>{{ comment.line_number|default:"-" }}</td>
+                        <td>{{ comment.content }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if comment.severity == 'error' %}bg-danger
+                                {% elif comment.severity == 'warning' %}bg-warning text-dark
+                                {% elif comment.severity == 'suggestion' %}bg-info
+                                {% else %}bg-secondary{% endif %}">
+                                {{ comment.severity }}
+                            </span>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-info-circle"></i> Review Information</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Created</th>
+                        <td>{{ review.created_at|date:"M d, Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Overall Rating</th>
+                        <td>{{ review.overall_rating }}</td>
+                    </tr>
+                    <tr>
+                        <th>Branch Rule</th>
+                        <td>{{ review.branch_rule.name|default:"Default" }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Reviewed By</th>
+                        <td>{{ review.reviewed_by.username|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Approved At</th>
+                        <td>{{ review.approved_at|date:"M d, Y H:i"|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Posted At</th>
+                        <td>{{ review.posted_at|date:"M d, Y H:i"|default:"-" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        {% if review.instructor_notes %}
+            <div class="mt-3 p-3 bg-light rounded">
+                <strong>Instructor Notes:</strong>
+                <p class="mb-0">{{ review.instructor_notes }}</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

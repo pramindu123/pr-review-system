@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ repository.name }} - PR Review System{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'repository_list' %}">Repositories</a></li>
+            <li class="breadcrumb-item active">{{ repository.name }}</li>
+        </ol>
+    </nav>
+    
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="bi bi-github me-2"></i>{{ repository.name }}
+                <form method="post" action="{% url 'repository_toggle_webhook' repository.pk %}" class="d-inline ms-2">
+                    {% csrf_token %}
+                    {% if repository.webhook_enabled %}
+                        <button type="submit" class="badge bg-success border-0" title="Click to disable webhook">
+                            <i class="bi bi-broadcast"></i> Webhook Enabled
+                        </button>
+                    {% else %}
+                        <button type="submit" class="badge bg-secondary border-0" title="Click to enable webhook">
+                            <i class="bi bi-broadcast"></i> Webhook Disabled
+                        </button>
+                    {% endif %}
+                </form>
+            </h1>
+            <p class="text-muted mb-0">
+                <a href="{{ repository.github_url }}" target="_blank" class="text-decoration-none">
+                    {{ repository.github_url }} <i class="bi bi-box-arrow-up-right"></i>
+                </a>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <form method="post" action="{% url 'repository_sync' repository.pk %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="state" value="all">
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-repeat"></i> Sync All PRs
+                </button>
+            </form>
+            <form method="post" action="{% url 'repository_delete' repository.pk %}" 
+                  class="d-inline" onsubmit="return confirm('Are you sure you want to delete this repository?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-trash"></i> Delete
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="stat-value">{{ repository.pull_requests.count }}</div>
+                <div class="stat-label">Total PRs</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card info">
+            <div class="card-body">
+                <div class="stat-value">{{ open_prs_count }}</div>
+                <div class="stat-label">Open PRs</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="stat-value">{{ branch_rules.count }}</div>
+                <div class="stat-label">Branch Rules</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card warning">
+            <div class="card-body">
+                <div class="stat-value">{{ pending_reviews_count }}</div>
+                <div class="stat-label">Pending Reviews</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body py-2">
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-muted">Filter:</span>
+            <a href="{% url 'repository_detail' repository.pk %}" 
+               class="btn btn-sm {% if not request.GET.status %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                All
+            </a>
+            <a href="?status=open" 
+               class="btn btn-sm {% if request.GET.status == 'open' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                Open
+            </a>
+            <a href="?status=closed" 
+               class="btn btn-sm {% if request.GET.status == 'closed' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                Closed
+            </a>
+            <a href="?status=merged" 
+               class="btn btn-sm {% if request.GET.status == 'merged' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                Merged
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-git"></i> Pull Requests</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if pull_requests %}
+            {% for pr in pull_requests %}
+                <div class="pr-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <a href="{% url 'pull_request_detail' pr.pk %}" class="pr-title text-decoration-none">
+                                #{{ pr.number }} - {{ pr.title }}
+                            </a>
+                            <div class="pr-meta">
+                                <img src="{{ pr.author_avatar }}" alt="" width="16" height="16" class="rounded-circle me-1">
+                                {{ pr.author }} opened on {{ pr.created_at|date:"M d, Y" }}
+                                <span class="mx-2">•</span>
+                                <span class="text-success">+{{ pr.additions }}</span>
+                                <span class="text-danger">-{{ pr.deletions }}</span>
+                                <span class="mx-2">•</span>
+                                {{ pr.changed_files }} files
+                            </div>
+                            <div class="mt-1">
+                                <code class="small">{{ pr.source_branch }}</code>
+                                <i class="bi bi-arrow-right mx-1"></i>
+                                <code class="small">{{ pr.target_branch }}</code>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge badge-status badge-{{ pr.status }}">{{ pr.status }}</span>
+                            {% with latest_review=pr.reviews.first %}
+                                {% if latest_review %}
+                                    <div class="mt-2">
+                                        <span class="badge badge-status badge-{{ latest_review.status }}">
+                                            Review: {{ latest_review.status }}
+                                        </span>
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            
+            {% if pull_requests.has_other_pages %}
+                <nav class="p-3">
+                    <ul class="pagination mb-0 justify-content-center">
+                        {% if pull_requests.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ pull_requests.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">Previous</a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in pull_requests.paginator.page_range %}
+                            {% if pull_requests.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num > pull_requests.number|add:'-3' and num < pull_requests.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if pull_requests.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ pull_requests.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">Next</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <i class="bi bi-git"></i>
+                <p>No pull requests found</p>
+                <form method="post" action="{% url 'repository_sync' repository.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-arrow-repeat"></i> Sync Pull Requests
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if branch_rules %}
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-sliders"></i> Repository Branch Rules</h5>
+        <a href="{% url 'branch_rule_add' %}" class="btn btn-sm btn-outline-primary">Add Rule</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Pattern</th>
+                    <th>Severity</th>
+                    <th>Checks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rule in branch_rules %}
+                    <tr>
+                        <td>{{ rule.name }}</td>
+                        <td><code>{{ rule.branch_pattern }}</code></td>
+                        <td>
+                            <span class="badge 
+                                {% if rule.severity == 'critical' %}bg-danger
+                                {% elif rule.severity == 'high' %}bg-warning text-dark
+                                {% elif rule.severity == 'medium' %}bg-info
+                                {% else %}bg-secondary{% endif %}">
+                                {{ rule.severity }}
+                            </span>
+                        </td>
+                        <td>{{ rule.expectations.checks|length }} checks</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

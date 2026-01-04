@@ -1,0 +1,1 @@
+web: gunicorn pr_review_system.wsgi

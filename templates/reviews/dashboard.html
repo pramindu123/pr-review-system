@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - PR Review System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Dashboard</h1>
+    <a href="{% url 'repository_add' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Add Repository
+    </a>
+</div>
+
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="stat-value">{{ stats.repositories }}</div>
+                <div class="stat-label">Repositories</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card info">
+            <div class="card-body">
+                <div class="stat-value">{{ stats.open_prs }}</div>
+                <div class="stat-label">Open PRs</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card warning">
+            <div class="card-body">
+                <div class="stat-value">{{ stats.pending_reviews }}</div>
+                <div class="stat-label">Pending Reviews</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="stat-value">{{ stats.approved_reviews }}</div>
+                <div class="stat-label">Approved Reviews</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-hourglass-split text-warning"></i>
+                    Pending Reviews
+                </h5>
+                <a href="{% url 'pending_approvals' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                {% if pending_reviews %}
+                    {% for review in pending_reviews %}
+                        <div class="pr-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <a href="{% url 'review_detail' review.pk %}" class="pr-title text-decoration-none">
+                                        #{{ review.pull_request.number }} - {{ review.pull_request.title|truncatechars:50 }}
+                                    </a>
+                                    <div class="pr-meta">
+                                        {{ review.pull_request.repository.name }} • 
+                                        Score: {{ review.score }}%
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <span class="score-badge score-{{ review.overall_rating }}">{{ review.score }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="bi bi-check-circle"></i>
+                        <p>No pending reviews</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-git text-success"></i>
+                    Recent Pull Requests
+                </h5>
+                <a href="{% url 'pull_request_list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_prs %}
+                    {% for pr in recent_prs %}
+                        <div class="pr-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <a href="{% url 'pull_request_detail' pr.pk %}" class="pr-title text-decoration-none">
+                                        #{{ pr.number }} - {{ pr.title|truncatechars:40 }}
+                                    </a>
+                                    <div class="pr-meta">
+                                        <img src="{{ pr.author_avatar }}" alt="" width="16" height="16" class="rounded-circle me-1">
+                                        {{ pr.author }} • {{ pr.repository.name }}
+                                    </div>
+                                </div>
+                                <span class="badge badge-status badge-{{ pr.status }}">{{ pr.status }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <p>No pull requests yet</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-folder text-primary"></i>
+            Connected Repositories
+        </h5>
+        <a href="{% url 'repository_list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+    </div>
+    <div class="card-body p-0">
+        {% if repositories %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Repository</th>
+                            <th>Open PRs</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for repo in repositories %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'repository_detail' repo.pk %}" class="text-decoration-none">
+                                        <i class="bi bi-folder me-1"></i>
+                                        {{ repo.name }}
+                                    </a>
+                                </td>
+                                <td>{{ repo.pull_requests.count }}</td>
+                                <td>
+                                    {% if repo.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form method="post" action="{% url 'repository_sync' repo.pk %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-arrow-repeat"></i> Sync
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="bi bi-folder-plus"></i>
+                <p>No repositories connected yet</p>
+                <a href="{% url 'repository_add' %}" class="btn btn-primary">Add Repository</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

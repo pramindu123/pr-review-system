@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+
+{% block title %}Add Branch Rule - PR Review System{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'branch_rule_list' %}">Branch Rules</a></li>
+            <li class="breadcrumb-item active">Add Rule</li>
+        </ol>
+    </nav>
+    <h1 class="h3 mb-0">Add Branch Rule</h1>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Rule Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="name" class="form-label">Rule Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" required
+                                   placeholder="e.g., Feature Branch Rules">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="branch_pattern" class="form-label">Branch Pattern *</label>
+                            <input type="text" class="form-control" id="branch_pattern" name="branch_pattern" required
+                                   placeholder="e.g., feature/*, bugfix/*">
+                            <div class="form-text">Use * as wildcard. Pattern is matched against the source branch.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="severity" class="form-label">Severity</label>
+                            <select class="form-select" id="severity" name="severity">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="repository" class="form-label">Repository</label>
+                            <select class="form-select" id="repository" name="repository">
+                                <option value="">Global (All Repositories)</option>
+                                {% for repo in repositories %}
+                                    <option value="{{ repo.pk }}">{{ repo.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Leave empty to apply to all repositories.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"
+                                  placeholder="Optional description of this rule..."></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Review Checks</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="addCheck">
+                        <i class="bi bi-plus-lg"></i> Add Check
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">Define the checks that will be evaluated for PRs matching this rule.</p>
+                    
+                    <div id="checksContainer">
+                    </div>
+                    
+                    <div class="mt-3">
+                        <h6>Quick Add:</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for check in default_checks %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary quick-add-check"
+                                        data-name="{{ check.name }}" data-description="{{ check.description }}">
+                                    {{ check.description }}
+                                </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Create Rule
+                </button>
+                <a href="{% url 'branch_rule_list' %}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Tips</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Branch Patterns</h6>
+                    <ul class="small text-muted">
+                        <li><code>feature/*</code> - All feature branches</li>
+                        <li><code>bugfix/*</code> - All bugfix branches</li>
+                        <li><code>release/v*</code> - Version releases</li>
+                        <li><code>*-urgent*</code> - Urgent branches</li>
+                    </ul>
+                    
+                    <h6>Check Weights</h6>
+                    <p class="small text-muted">
+                        Weights determine how much each check contributes to the overall score.
+                        Higher weights = more important.
+                    </p>
+                    
+                    <h6>Available Check Names</h6>
+                    <ul class="small text-muted">
+                        <li><code>has_tests</code> - Test files present</li>
+                        <li><code>has_documentation</code> - Docs updated</li>
+                        <li><code>reasonable_size</code> - Size limits</li>
+                        <li><code>descriptive_commits</code> - Commit quality</li>
+                        <li><code>no_debug_code</code> - No debug statements</li>
+                        <li><code>references_issue</code> - Issue linked</li>
+                        <li><code>has_description</code> - PR description</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let checkIndex = 0;
+    
+    function addCheck(name = '', description = '', weight = 10) {
+        const container = document.getElementById('checksContainer');
+        const row = document.createElement('div');
+        row.className = 'row mb-2 check-row';
+        row.innerHTML = `
+            <div class="col-md-4">
+                <input type="text" class="form-control form-control-sm" name="check_name[]" 
+                       placeholder="Check name" value="${name}">
+            </div>
+            <div class="col-md-5">
+                <input type="text" class="form-control form-control-sm" name="check_description[]" 
+                       placeholder="Description" value="${description}">
+            </div>
+            <div class="col-md-2">
+                <input type="number" class="form-control form-control-sm" name="check_weight[]" 
+                       placeholder="Weight" value="${weight}" min="1" max="100">
+            </div>
+            <div class="col-md-1">
+                <button type="button" class="btn btn-sm btn-outline-danger remove-check">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(row);
+        checkIndex++;
+    }
+    
+    document.getElementById('addCheck').addEventListener('click', () => addCheck());
+    
+    document.querySelectorAll('.quick-add-check').forEach(btn => {
+        btn.addEventListener('click', () => {
+            addCheck(btn.dataset.name, btn.dataset.description);
+            btn.disabled = true;
+        });
+    });
+    
+    document.getElementById('checksContainer').addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-check') || e.target.parentElement.classList.contains('remove-check')) {
+            const row = e.target.closest('.check-row');
+            row.remove();
+        }
+    });
+    addCheck();
+</script>
+{% endblock %}

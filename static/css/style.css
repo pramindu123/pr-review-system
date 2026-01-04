@@ -1,0 +1,90 @@
+/* PR Review System - Custom Styles */
+
+/* Additional custom styles can go here */
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Loading spinner */
+.spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-left-color: #2da44e;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Tooltip customization */
+.tooltip-inner {
+    max-width: 300px;
+}
+
+/* Code block styling */
+code {
+    background-color: rgba(175, 184, 193, 0.2);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 85%;
+}
+
+pre code {
+    background-color: transparent;
+    padding: 0;
+}
+
+/* Table improvements */
+.table th {
+    font-weight: 600;
+    color: #24292f;
+    border-bottom: 2px solid #d0d7de;
+}
+
+/* Link hover effects */
+a.pr-title:hover {
+    color: #0969da !important;
+}
+
+/* Modal backdrop fix */
+.modal-backdrop.show {
+    opacity: 0.5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    .stat-value {
+        font-size: 1.5rem;
+    }
+    
+    .score-badge {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+}
+
+/* Print styles */
+@media print {
+    .sidebar {
+        display: none;
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .btn, .no-print {
+        display: none !important;
+    }
+}
